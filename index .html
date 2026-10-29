@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Educational Pomodoro Timer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: #000000; /* Completely black background */
+            color: #ffffff;
+        }
+
+        .digital-font {
+            font-family: 'Roboto Mono', monospace;
+        }
+
+        /* Hide number input arrows */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+            appearance: textfield;
+        }
+
+        /* SVG Ring Animation */
+        .progress-ring__circle {
+            transition: stroke-dashoffset 1s linear, stroke 0.5s ease-in-out;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+
+        /* Glowing effect for the time's up state */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            50% { box-shadow: 0 0 20px 15px rgba(239, 68, 68, 0); }
+        }
+
+        .times-up {
+            animation: pulse-glow 1.5s infinite;
+            border-color: #ef4444 !important;
+        }
+
+        .times-up-text {
+            color: #ef4444 !important;
+            animation: bounce 1s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div id="timer-card" class="bg-zinc-900 w-full max-w-md rounded-3xl shadow-2xl shadow-emerald-900/20 overflow-hidden border border-zinc-800 transition-all duration-300">
+        
+        <!-- Header -->
+        <div class="bg-black border-b border-zinc-800 text-center py-4">
+            <h1 class="text-2xl font-bold tracking-wider text-emerald-400">CLASSROOM TIMER</h1>
+        </div>
+
+        <div class="p-8 flex flex-col items-center">
+            
+            <!-- Top Section: Digital Clock Input -->
+            <div class="mb-6 w-full text-center">
+                <p class="text-zinc-400 font-semibold mb-2 uppercase tracking-wide text-sm">Set Time (Min : Sec)</p>
+                <div class="flex justify-center items-center space-x-2 bg-black rounded-2xl p-4 border-2 border-zinc-800 focus-within:border-emerald-500 transition-colors">
+                    <input type="number" id="input-minutes" value="25" min="0" max="99" 
+                        class="digital-font text-5xl font-bold text-center w-24 bg-transparent outline-none text-white transition-colors"
+                        onfocus="this.select()">
+                    <span class="text-4xl font-bold text-zinc-600 pb-2">:</span>
+                    <input type="number" id="input-seconds" value="00" min="0" max="59" 
+                        class="digital-font text-5xl font-bold text-center w-24 bg-transparent outline-none text-white transition-colors"
+                        onfocus="this.select()">
+                </div>
+            </div>
+
+            <!-- Middle Section: Visual Progress Ring -->
+            <div class="relative w-72 h-72 mb-8 flex justify-center items-center">
+                <svg class="w-full h-full drop-shadow-xl" viewBox="0 0 300 300">
+                    <!-- Background Donut (Dark Mode) -->
+                    <circle cx="150" cy="150" r="115" fill="none" stroke="#18181b" stroke-width="70" />
+                    <!-- Progress Donut - Visually unfills as time passes -->
+                    <circle id="progress-ring" class="progress-ring__circle" cx="150" cy="150" r="115" fill="none" stroke="#10b981" stroke-width="70" stroke-linecap="butt" />
+                </svg>
+                
+                <!-- Center Time Display -->
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <div id="display-time" class="digital-font text-5xl font-bold text-white tracking-widest drop-shadow-md">25:00</div>
+                    <div id="display-message" class="text-emerald-500 font-bold text-sm mt-2 h-6 transition-opacity duration-300 opacity-0 uppercase tracking-widest">Focus Time!</div>
+                </div>
+            </div>
+
+            <!-- Bottom Section: Controls -->
+            <div class="w-full flex justify-center space-x-4">
+                <button id="btn-start" class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-4 px-6 rounded-xl shadow-lg transform hover:-translate-y-1 transition-all active:translate-y-0 active:shadow-md text-lg">
+                    Start
+                </button>
+                <button id="btn-pause" class="flex-1 bg-amber-500 hover:bg-amber-400 text-white font-bold py-4 px-6 rounded-xl shadow-lg transform hover:-translate-y-1 transition-all active:translate-y-0 active:shadow-md text-lg hidden">
+                    Pause
+                </button>
+                <button id="btn-reset" class="bg-zinc-800 hover:bg-zinc-700 text-white font-bold py-4 px-6 rounded-xl shadow-lg transform hover:-translate-y-1 transition-all active:translate-y-0 active:shadow-md text-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const inputMinutes = document.getElementById('input-minutes');
+        const inputSeconds = document.getElementById('input-seconds');
+        const displayTime = document.getElementById('display-time');
+        const displayMessage = document.getElementById('display-message');
+        const progressRing = document.getElementById('progress-ring');
+        const btnStart = document.getElementById('btn-start');
+        const btnPause = document.getElementById('btn-pause');
+        const btnReset = document.getElementById('btn-reset');
+        const timerCard = document.getElementById('timer-card');
+
+        // SVG Ring setup
+        const radius = progressRing.r.baseVal.value;
+        const circumference = radius * 2 * Math.PI;
+        progressRing.style.strokeDasharray = `${circumference} ${circumference}`;
+        progressRing.style.strokeDashoffset = 0;
+
+        // Timer State
+        let totalSeconds = 25 * 60;
+        let currentSeconds = totalSeconds;
+        let timerInterval = null;
+        let isRunning = false;
+
+        // Utility: Format numbers to 2 digits (e.g., 5 -> "05")
+        const formatTime = (time) => time < 10 ? `0${time}` : time;
+
+        // Parse inputs and update state safely
+        function syncInputsToState() {
+            let m = parseInt(inputMinutes.value) || 0;
+            let s = parseInt(inputSeconds.value) || 0;
+            
+            // Constrain values
+            if (m < 0) m = 0;
+            if (m > 99) m = 99;
+            if (s < 0) s = 0;
+            if (s > 59) s = 59;
+
+            inputMinutes.value = formatTime(m);
+            inputSeconds.value = formatTime(s);
+
+            totalSeconds = (m * 60) + s;
+            currentSeconds = totalSeconds;
+        }
+
+        // Update the visual representations
+        function updateDisplay() {
+            const minutes = Math.floor(currentSeconds / 60);
+            const seconds = currentSeconds % 60;
+            displayTime.textContent = `${formatTime(minutes)}:${formatTime(seconds)}`;
+
+            // Update SVG Ring offset
+            if (totalSeconds > 0) {
+                const progress = currentSeconds / totalSeconds;
+                const offset = circumference - (progress * circumference);
+                progressRing.style.strokeDashoffset = offset;
+                
+                // Color transition logic based on remaining time percentage
+                if (progress > 0.5) {
+                    progressRing.style.stroke = '#10b981'; // Emerald
+                } else if (progress > 0.2) {
+                    progressRing.style.stroke = '#f59e0b'; // Amber
+                } else {
+                    progressRing.style.stroke = '#ef4444'; // Red
+                }
+            } else {
+                progressRing.style.strokeDashoffset = circumference;
+            }
+        }
+
+        // Handle timer completion
+        function timerComplete() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            
+            displayTime.textContent = "00:00";
+            displayMessage.textContent = "Time's Up!";
+            displayMessage.classList.add('times-up-text', 'opacity-100');
+            displayMessage.classList.remove('opacity-0', 'text-emerald-500');
+            
+            timerCard.classList.add('times-up');
+            
+            btnPause.classList.add('hidden');
+            btnStart.classList.remove('hidden');
+            
+            inputMinutes.disabled = false;
+            inputSeconds.disabled = false;
+            
+            // Generate a simple beep sound using Web Audio API
+            playBeep();
+        }
+
+        function playBeep() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime); // 800Hz beep
+                
+                gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 1);
+            } catch(e) {
+                console.log("Audio not supported or permitted.");
+            }
+        }
+
+        // Start Timer Logic
+        function startTimer() {
+            if (totalSeconds <= 0 && currentSeconds <= 0) return;
+
+            if (!isRunning) {
+                // If starting from fresh (not paused), sync from inputs
+                if (currentSeconds === totalSeconds || currentSeconds === 0) {
+                     syncInputsToState();
+                     // Remove 'Time's Up' styling if present
+                     timerCard.classList.remove('times-up');
+                     displayMessage.classList.remove('times-up-text');
+                     displayMessage.textContent = "Focus Time!";
+                }
+
+                // Don't start if inputs evaluated to 0
+                if (currentSeconds <= 0) return;
+                
+                isRunning = true;
+                inputMinutes.disabled = true;
+                inputSeconds.disabled = true;
+                
+                btnStart.classList.add('hidden');
+                btnPause.classList.remove('hidden');
+                displayMessage.classList.remove('opacity-0');
+                displayMessage.classList.add('opacity-100', 'text-emerald-500');
+
+                updateDisplay(); // initial update before interval
+
+                timerInterval = setInterval(() => {
+                    currentSeconds--;
+                    updateDisplay();
+
+                    if (currentSeconds <= 0) {
+                        timerComplete();
+                    }
+                }, 1000);
+            }
+        }
+
+        // Pause Timer Logic
+        function pauseTimer() {
+            if (isRunning) {
+                clearInterval(timerInterval);
+                isRunning = false;
+                
+                btnPause.classList.add('hidden');
+                btnStart.classList.remove('hidden');
+                displayMessage.textContent = "Paused";
+                displayMessage.classList.replace('text-emerald-500', 'text-amber-500');
+            }
+        }
+
+        // Reset Timer Logic
+        function resetTimer() {
+            clearInterval(timerInterval);
+            isRunning = false;
+            
+            // Re-enable inputs
+            inputMinutes.disabled = false;
+            inputSeconds.disabled = false;
+            
+            // Clean up UI states
+            btnPause.classList.add('hidden');
+            btnStart.classList.remove('hidden');
+            
+            timerCard.classList.remove('times-up');
+            displayMessage.classList.remove('times-up-text', 'text-amber-500');
+            displayMessage.classList.add('opacity-0');
+            
+            // Sync with whatever is in the inputs, and reset visual display
+            syncInputsToState();
+            updateDisplay();
+            
+            // Reset stroke color back to green
+            progressRing.style.stroke = '#10b981';
+        }
+
+        // Event Listeners
+        btnStart.addEventListener('click', startTimer);
+        btnPause.addEventListener('click', pauseTimer);
+        btnReset.addEventListener('click', resetTimer);
+
+        // Input listeners to update the center display instantly when not running
+        [inputMinutes, inputSeconds].forEach(input => {
+            input.addEventListener('input', () => {
+                if (!isRunning) {
+                    syncInputsToState();
+                    updateDisplay();
+                    progressRing.style.stroke = '#10b981'; // Reset color
+                }
+            });
+            // Auto-format on blur
+            input.addEventListener('blur', () => {
+                let val = parseInt(input.value) || 0;
+                input.value = formatTime(val);
+            });
+        });
+
+        // Initialize Display
+        syncInputsToState();
+        updateDisplay();
+
+    </script>
+</body>
+</html>
